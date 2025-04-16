@@ -1,4 +1,4 @@
-#第05章_排序与分页
+#第03章_排序与分页
 
 #1. 排序
 
@@ -130,6 +130,10 @@ SELECT employee_id,last_name
 FROM employees
 LIMIT 31,2;
 
+SELECT employee_id,last_name
+FROM employees
+LIMIT 31,2;
+
 #2.3 MySQL8.0新特性：LIMIT ... OFFSET ...
 
 #练习：表里有107条数据，我们只想要显示第 32、33 条数据怎么办呢？
@@ -138,7 +142,17 @@ SELECT employee_id,last_name
 FROM employees
 LIMIT 2 OFFSET 31;
 
+SELECT employee_id,last_name
+FROM employees
+LIMIT 2 OFFSET 31;
+
 #练习：查询员工表中工资最高的员工信息
+
+SELECT employee_id,salary
+FROM employees
+ORDER BY salary DESC
+LIMIT 0,1;
+
 SELECT employee_id,last_name,salary
 FROM employees
 ORDER BY salary DESC
@@ -147,3 +161,26 @@ LIMIT 1;
 
 #2.4 LIMIT 可以使用在MySQL、PGSQL、MariaDB、SQLite 等数据库中使用，表示分页。
 # 不能使用在SQL Server、DB2、Oracle！
+
+#练习
+#1. 查询员工的姓名和部门号和年薪，按年薪降序,按姓名升序显示 
+SELECT last_name,department_id,salary*12 annul_sal
+FROM employees
+ORDER BY annul_sal DESC,last_name ASC;
+
+
+#2. 选择工资不在 8000 到 17000 的员工的姓名和工资，按工资降序，显示第21到40位置的数据 
+SELECT last_name,salary
+FROM employees
+WHERE salary NOT BETWEEN 8000 AND 17000
+ORDER BY salary DESC
+LIMIT 20,20;
+
+#3. 查询邮箱中包含 e 的员工信息，并先按邮箱的字节数降序，再按部门号升序
+SELECT * FROM employees;
+
+SELECT last_name,email,department_id
+FROM employees
+#WHere email LIKE '%e%'
+WHERE email REGEXP "[e]"
+ORDER BY LENGTH(email) DESC,department_id ASC;
