@@ -162,12 +162,19 @@ SELECT CURDATE(),CURRENT_DATE(),CURTIME(),NOW(),SYSDATE(),
 UTC_DATE(),UTC_TIME()
 FROM DUAL;
 
+SELECT CURDATE(),CURTIME(),NOW()
+FROM DUAL;
+
 SELECT CURDATE(),CURDATE() + 0,CURTIME() + 0,NOW() + 0
 FROM DUAL;
 
 #3.2 日期与时间戳的转换
 SELECT UNIX_TIMESTAMP(),UNIX_TIMESTAMP('2021-10-01 12:12:32'),
 FROM_UNIXTIME(1635173853),FROM_UNIXTIME(1633061552)
+FROM DUAL;
+
+SELECT UNIX_TIMESTAMP(),UNIX_TIMESTAMP('2005-4-30 00.45.12'),
+FROM_UNIXTIME(1744953012),FROM_UNIXTIME(0)
 FROM DUAL;
 
 #3.3 获取月份、星期、星期数、天数等函数
@@ -199,6 +206,9 @@ DATE_ADD(NOW(),INTERVAL -1 YEAR),
 DATE_SUB(NOW(),INTERVAL 1 YEAR)
 FROM DUAL;
 
+SELECT NOW(),DATE_ADD(NOW(),INTERVAL 1 YEAR),
+DATE_ADD(NOW(),INTERVAL -2 HOUR)
+FROM DUAL;
 
 SELECT DATE_ADD(NOW(), INTERVAL 1 DAY) AS col1,DATE_ADD('2021-10-21 23:32:12',INTERVAL 1 SECOND) AS col2,
 ADDDATE('2021-10-21 23:32:12',INTERVAL 1 SECOND) AS col3,
@@ -213,6 +223,10 @@ TIMEDIFF(NOW(),'2021-10-25 22:10:10'),FROM_DAYS(366),TO_DAYS('0000-12-25'),
 LAST_DAY(NOW()),MAKEDATE(YEAR(NOW()),32),MAKETIME(10,21,23),PERIOD_ADD(20200101010101,10)
 FROM DUAL;
 
+SELECT NOW(),ADDTIME(NOW(),20),SUBTIME(NOW(),20),
+DATEDIFF(NOW(),'2025-4-17'),TIMEDIFF(NOW(),'2025-4-18 13:30:00')
+FROM DUAL;
+
 #3.7 日期的格式化与解析
 # 格式化：日期 ---> 字符串
 # 解析：  字符串 ----> 日期
@@ -222,12 +236,16 @@ FROM DUAL;
 #之前，我们接触过隐式的格式化或解析
 SELECT *
 FROM employees
-WHERE hire_date = '1993-01-13';
+WHERE hire_date = '1990-01-13';
 
 #格式化：
 SELECT DATE_FORMAT(CURDATE(),'%Y-%M-%D'),
 DATE_FORMAT(NOW(),'%Y-%m-%d'),TIME_FORMAT(CURTIME(),'%h:%i:%S'),
 DATE_FORMAT(NOW(),'%Y-%M-%D %h:%i:%S %W %w %T %r')
+FROM DUAL;
+
+SELECT DATE_FORMAT(CURDATE(),'%Y-%M-%D'),
+TIME_FORMAT(NOW(),'%h:%i:%S'),DATE_FORMAT(NOW(),'%Y-%m-%d %h:%i:%S %W %w %T %r')
 FROM DUAL;
 
 #解析：格式化的逆过程
@@ -240,8 +258,21 @@ FROM DUAL;
 SELECT DATE_FORMAT(CURDATE(),GET_FORMAT(DATE,'USA'))
 FROM DUAL;
 
+
+SELECT STR_TO_DATE('2025-4-18 4:00:00','%Y-%m-%d %h:%i:%S')
+FROM DUAL;
+
+SELECT GET_FORMAT(DATE,'USA')
+FROM DUAL;
+
+SELECT DATE_FORMAT(NOW(),GET_FORMAT(TIME,'USA'))
+FROM DUAL;
+
+
+
 #4.流程控制函数
 #4.1 IF(VALUE,VALUE1,VALUE2)
+#VALUE为真时执行VALUE1,为假时执行VALUE2
 
 SELECT last_name,salary,IF(salary >= 6000,'高工资','低工资') "details"
 FROM employees;
@@ -250,9 +281,24 @@ SELECT last_name,commission_pct,IF(commission_pct IS NOT NULL,commission_pct,0) 
 salary * 12 * (1 + IF(commission_pct IS NOT NULL,commission_pct,0)) "annual_sal"
 FROM employees;
 
+
+SELECT last_name,salary,IF(salary>=8000,'高工资','低工资') "details"
+FROM employees;
+
+SELECT last_name,commission_pct,IF(commission_pct IS NOT NULL,commission_pct,0) "details",
+salary*12,salary*12*(1+IF(commission_pct IS NOT NULL,commission_pct,0)) "annual_sal"
+FROM employees;
+
+
 #4.2 IFNULL(VALUE1,VALUE2):看做是IF(VALUE,VALUE1,VALUE2)的特殊情况
+#不为NULL时执行VALUE1，否则执行VALUE2
+
 SELECT last_name,commission_pct,IFNULL(commission_pct,0) "details"
 FROM employees;
+
+SELECT last_name,salary*12*(1+IFNULL(commission_pct,0)) annul_sal
+FROM employees;
+
 
 #4.3 CASE WHEN ... THEN ...WHEN ... THEN ... ELSE ... END
 # 类似于java的if ... else if ... else if ... else
@@ -267,6 +313,13 @@ SELECT last_name,salary,CASE WHEN salary >= 15000 THEN '白骨精'
 			     WHEN salary >= 8000 THEN '小屌丝'
 			     END "details"
 FROM employees;
+
+SELECT last_name,salary,CASE WHEN salary>=15000 THEN '小富'
+                             WHEN salary>=10000 THEN '小资'
+                             WHEN salary>=5000  THEN '普通'
+                             ELSE '贫困' END "details"
+FROM employees;
+
 
 #4.4 CASE ... WHEN ... THEN ... WHEN ... THEN ... ELSE ... END
 # 类似于java的swich ... case...
@@ -302,9 +355,20 @@ SELECT employee_id,last_name,department_id,salary,CASE department_id WHEN 10 THE
 FROM employees
 WHERE department_id IN (10,20,30);
 
+SELECT employee_id,salary,department_id,CASE department_id WHEN 10 THEN salary*1.1
+                                                           WHEN 20 THEN salary*1.2
+                                                           WHEN 30 THEN salary*1.3
+                                                           END "details"
+FROM employees
+WHERE department_id IN (10,20,30);
+
+
 #5. 加密与解密的函数
 # PASSWORD()在mysql8.0中弃用。
 SELECT MD5('mysql'),SHA('mysql'),MD5(MD5('mysql'))
+FROM DUAL;
+
+SELECT MD5('i love you'),SHA('i love you')
 FROM DUAL;
 
 #ENCODE()\DECODE() 在mysql8.0中弃用。
@@ -319,13 +383,17 @@ SELECT VERSION(),CONNECTION_ID(),DATABASE(),SCHEMA(),
 USER(),CURRENT_USER(),CHARSET('尚硅谷'),COLLATION('尚硅谷')
 FROM DUAL;
 
+
 #7. 其他函数
 #如果n的值小于或者等于0，则只保留整数部分
 SELECT FORMAT(123.125,2),FORMAT(123.125,0),FORMAT(123.125,-2)
 FROM DUAL;
 
+#将数字在不同的进制间进行转换
 SELECT CONV(16, 10, 2), CONV(8888,10,16), CONV(NULL, 10, 2)
 FROM DUAL;
+
+# 将端口号转换为一串数字
 #以“192.168.1.100”为例，计算方式为192乘以256的3次方，加上168乘以256的2次方，加上1乘以256，再加上100。
 SELECT INET_ATON('192.168.1.100'),INET_NTOA(3232235876)
 FROM DUAL;
@@ -333,8 +401,78 @@ FROM DUAL;
 #BENCHMARK()用于测试表达式的执行效率
 SELECT BENCHMARK(100000,MD5('mysql'))
 FROM DUAL;
+
+SELECT BENCHMARK(100000,MD5('mysql'))
+FROM DUAL;
+
 # CONVERT():可以实现字符集的转换
 SELECT CHARSET('atguigu'),CHARSET(CONVERT('atguigu' USING 'gbk'))
 FROM DUAL;
 
 
+#练习
+# 1.显示系统时间(注：日期+时间)
+SELECT NOW()
+FROM DUAL;
+
+# 2.查询员工号，姓名，工资，以及工资提高百分之20%后的结果（new salary）
+SELECT employee_id,last_name,salary,salary*1.2 "new salary"
+FROM employees;
+
+# 3.将员工的姓名按首字母排序，并写出姓名的长度（length）
+SELECT last_name,LENGTH(last_name) "length"
+FROM employees
+ORDER BY last_name;
+
+# 4.查询员工id,last_name,salary，并作为一个列输出，别名为OUT_PUT
+SELECT CONCAT(employee_id,' ',last_name,' ',salary) out_put
+FROM employees;
+
+# 5.查询公司各员工工作的年数、工作的天数，并按工作年数的降序排序
+DESC employees;
+
+SELECT last_name,(YEAR(NOW())-YEAR(hire_date)) "work_year",DATEDIFF(NOW(),hire_date) "work_day"
+FROM employees
+ORDER BY work_year DESC;
+
+# 6.查询员工姓名，hire_date , department_id，满足以下条件：
+#雇用时间在1997年之后，department_id 为80 或 90 或110, commission_pct不为空
+SELECT last_name,hire_date,department_id
+FROM employees
+WHERE YEAR(hire_date)>=1997 
+AND department_id IN (80,90,100)
+AND commission_pct IS NOT NULL;
+
+# 7.查询公司中入职超过10000天的员工姓名、入职时间
+SELECT last_name,hire_date
+FROM employees
+WHERE DATEDIFF(NOW(),hire_date)>10000;
+
+# 8.做一个查询，产生下面的结果
+#<last_name> earns <salary> monthly but wants <salary*3> 
+SELECT last_name,'earns',salary,'monthly but wants',salary*3 "new_sal"
+FROM employees;
+
+SELECT CONCAT(last_name,' earns ',TRUNCATE(salary,0),' monthly but wants ',TRUNCATE(salary*3,0)) "Dream salary"
+FROM employees; 
+
+# 9.使用case-when，按照下面的条件：
+/*job                  grade
+AD_PRES              	A
+ST_MAN               	B
+IT_PROG              	C
+SA_REP               	D
+ST_CLERK             	E
+产生下面的结果:
+*/
+
+SELECT *
+FROM employees;
+
+SELECT job_id,CASE WHEN job_id='AD_PRES' THEN 'A'
+                   WHEN job_id='ST_MAN' THEN 'B'
+                   WHEN job_id='IT_PROG' THEN 'C'
+                   WHEN job_id='SA_REP' THEN 'D'
+                   WHEN job_id='ST_CLERK' THEN 'E'
+                   END "grade"
+FROM employees;
