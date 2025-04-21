@@ -424,6 +424,16 @@ VALUES('春'),('秋');
 
 SELECT * FROM test_enum;
 
+CREATE TABLE test_num(
+season ENUM('春','夏','秋','冬','unknow')
+);
+
+INSERT INTO test_num
+VALUES('春'),('秋')
+
+SELECT * FROM test_num;
+
+DROP TABLE test_num;
 #Data truncated for column 'season' at row 1
 INSERT INTO test_enum
 VALUES('春,秋');
@@ -452,6 +462,15 @@ s SET ('A', 'B', 'C')
 );
 
 INSERT INTO test_set (s) VALUES ('A'), ('A,B');
+
+CREATE TABLE test_set(
+s SET('A','B','C')
+);
+
+INSERT INTO test_set
+VALUES('A,B');
+
+SELECT * FROM test_set;
 
 #插入重复的SET类型成员时，MySQL会自动删除重复的成员
 INSERT INTO test_set (s) VALUES ('A,B,C,A');
