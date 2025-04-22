@@ -553,6 +553,10 @@ VALUES(0);
 
 
 
+
+#结论：开发中不要使用外键约束，在应用层（java后台）解决
+#因为外键约束会大大降低效率
+
 #7.foreign key (外键约束)
 #7.1 在CREATE TABLE 时添加
 
@@ -563,6 +567,12 @@ CREATE TABLE dept1(
 dept_id INT,
 dept_name VARCHAR(15)
 );
+
+CREATE TABLE dept1(
+dept_id INT,
+dept_name VARCHAR(15)
+);
+
 #②再创建从表
 CREATE TABLE emp1(
 emp_id INT PRIMARY KEY AUTO_INCREMENT,
@@ -574,12 +584,23 @@ CONSTRAINT fk_emp1_dept_id FOREIGN KEY (department_id) REFERENCES dept1(dept_id)
 
 );
 
+CREATE TABLE emp1(
+emp_id INT PRIMARY KEY AUTO_INCREMENT,
+emp_name VARCHAR(15),
+department_id INT,
+
+CONSTRAINT fk_emp1_dept_id FOREIGN KEY (department_id) REFERENCE dept1(dept_id)
+);
+
 #上述操作报错，因为主表中的dept_id上没有主键约束或唯一性约束。
 #③ 添加
 ALTER TABLE dept1
 ADD PRIMARY KEY (dept_id);
 
 DESC dept1;
+
+ALTER TABLE dept1
+ADD PRIMARY KEY(dept_id);
 
 #④ 再创建从表
 CREATE TABLE emp1(
@@ -603,18 +624,32 @@ WHERE TABLE_NAME = 'emp1';
 INSERT INTO emp1
 VALUES(1001,'Tom',10);
 
+INSERT INTO emp1
+VALUES(1001,'Tom',10);
+
 #
 INSERT INTO dept1
 VALUES(10,'IT');
+
+INSERT INTO dept1
+VALUES(10,'IT');
+
 #在主表dept1中添加了10号部门以后，我们就可以在从表中添加10号部门的员工
 INSERT INTO emp1
 VALUES(1001,'Tom',10);
 
 #删除失败
 DELETE FROM dept1
+WHERE dept_id=10;
+
+DELETE FROM dept1
 WHERE dept_id = 10;
 
 #更新失败
+UPDATE dept1
+SET dept_id=20
+WHERE dept_id=10;
+
 UPDATE dept1
 SET dept_id = 20
 WHERE dept_id = 10;
@@ -630,6 +665,10 @@ emp_id INT PRIMARY KEY AUTO_INCREMENT,
 emp_name VARCHAR(15),
 department_id INT
 );
+
+ALTER TABLE emp2
+ADD CONSTRAINT fk_emp2_dept_id FOREIGN KEY(department_id) REFERENCES dept2(dept_id)
+
 
 ALTER TABLE emp2
 ADD CONSTRAINT fk_emp2_dept_id FOREIGN KEY(department_id) REFERENCES dept2(dept_id);
@@ -702,6 +741,9 @@ SELECT * FROM information_schema.table_constraints
 WHERE TABLE_NAME = 'emp1';
 
 #删除外键约束
+ALTER TABLE emp1
+DROP FOREIGN KEY fk_emp1_dept_id
+
 
 ALTER TABLE emp1
 DROP FOREIGN KEY fk_emp1_dept_id;
@@ -711,6 +753,12 @@ SHOW INDEX FROM emp1;
 
 ALTER TABLE emp1
 DROP INDEX fk_emp1_dept_id;
+
+ALTER TABLE emp1
+DROP INDEX fk_emp1_dept_id;
+
+
+
 
 #8. check 约束
 # MySQL5.7 不支持CHECK约束，MySQL8.0支持CHECK约束。
@@ -729,6 +777,19 @@ INSERT INTO test10
 VALUES(2,'Tom1',1500);
 
 SELECT * FROM test10;
+
+CREATE TABLE test10(
+id INT,
+last_name VARCHAR(15),
+salary DECIMAL(10,2) CHECK(salary>2000)
+);
+
+INSERT INTO test10(id,last_name,salary)
+VALUES(1,'Tom',2500);
+
+INSERT INTO test10(id,last_name,salary)
+VALUES(1,'Tom',1500);
+
 
 
 #9.DEFAULT约束
@@ -750,6 +811,20 @@ VALUES(2,'Tom1');
 SELECT * 
 FROM test11;
 
+
+CREATE TABLE test11(
+id INT,
+last_name VARCHAR(15), 
+salary DECIMAL(10,2) DEFAULT 2000
+);
+
+INSERT INTO test11(id,last_name,salary)
+VALUES(1,'Tom',2500);
+
+INSERT INTO test11(id,last_name)
+VALUES(1,'Tom');
+
+
 #9.2 在ALTER TABLE添加约束
 CREATE TABLE test12(
 id INT,
@@ -762,9 +837,162 @@ DESC test12;
 ALTER TABLE test12
 MODIFY salary DECIMAL(8,2) DEFAULT 2500;
 
+CREATE TABLE test12(
+id INT,
+last_name VARCHAR(15),
+salary DECIMAL(10,2)
+);
+
+ALTER TABLE test12
+MODIFY salary DECIMAL(8,2) DEFAULT 2000;
+
+INSERT INTO test12(id,last_name)
+VALUES(1,'Tom');
+
+SELECT * FROM test12;
+
 #9.3 在ALTER TABLE删除约束
 ALTER TABLE test12
 MODIFY salary DECIMAL(8,2);
 
 
 SHOW CREATE TABLE test12;
+
+ALTER TABLE test12
+MODIFY salary DECIMAL(8,2);
+
+#练习1：
+CREATE DATABASE test04_emp;
+
+USE test04_emp;
+
+CREATE TABLE emp2(
+id INT,
+emp_name VARCHAR(15)
+);
+
+CREATE TABLE dept2(
+id INT,
+dept_name VARCHAR(15)
+);
+
+#1.向表emp2的id列中添加PRIMARY KEY约束
+ALTER TABLE emp2
+ADD PRIMARY KEY(id);
+
+DESC emp2;
+
+#2.向表dept2的id列中添加PRIMARY KEY约束
+ALTER TABLE dept2
+ADD CONSTRAINT pk_dept2_id PRIMARY KEY(id);
+
+DESC dept2;
+
+#3.向表emp2中添加列dept_id，并在其中定义FOREIGN KEY约束
+#与之相关联的列是dept2表中的id列
+ALTER TABLE emp2
+ADD dept_id INT;
+
+ALTER TABLE emp2
+ADD FOREIGN KEY(dept_id) REFERENCES dept2(id);
+
+
+#练习2：
+#承接《第11章_数据处理之增删改》的综合案例。
+CREATE DATABASE IF NOT EXISTS test01_library CHARACTER SET 'utf8';
+
+USE test01_library;
+
+CREATE TABLE IF NOT EXISTS books(
+id INT,
+`name` VARCHAR(50),
+`authors` VARCHAR(100),
+price FLOAT,
+pubdate YEAR,
+note VARCHAR(100),
+num INT
+);
+
+DESC books;
+
+SELECT * FROM books;
+
+USE test01_library;
+
+DESC books;
+
+#根据题目要求给books表中的字段添加约束
+ALTER TABLE books
+MODIFY id INT PRIMARY KEY AUTO_INCREMENT;
+
+ALTER TABLE books
+MODIFY num INT NOT NULL;
+
+
+#练习3：
+#1. 创建数据库test04_company
+CREATE DATABASE IF NOT EXISTS test04_company CHARACTER SET 'utf8';
+
+CREATE DATABASE IF NOT EXISTS test04_company CHARACTER SET 'utf8';
+
+USE test04_company;
+
+#2. 按照下表给出的表结构在test04_company数据库中
+#创建两个数据表offices和employees
+CREATE TABLE offices(
+officeCode INT(10) PRIMARY KEY,
+city VARCHAR(50) NOT NULL,
+address VARCHAR(50),
+country VARCHAR(50) NOT NULL,
+postalCode VARCHAR(15) UNIQUE 
+);
+
+DESC offices;
+
+CREATE TABLE employees(
+employeeNumber INT(11) PRIMARY KEY AUTO_INCREMENT,
+lastName VARCHAR(50) NOT NULL,
+firstName VARCHAR(50) NOT NULL,
+mobile VARCHAR(25) UNIQUE,
+officeCode INT(10) NOT NULL ,
+jobTile VARCHAR(50) NOT NULL,
+birth DATETIME NOT NULL,
+note VARCHAR(255),
+sex VARCHAR(5),
+
+CONSTRAINT fk_emp_officeCode FOREIGN KEY(officeCode) REFERENCES offices(officeCode)
+);
+
+DESC employees;
+
+#3. 将表employees的mobile字段修改到officeCode字段后面
+ALTER TABLE employees
+MODIFY mobile VARCHAR(25) AFTER officeCode;
+
+######4. 将表employees的birth字段改名为employee_birth
+ALTER TABLE employees
+CHANGE birth employee_birth DATETIME;
+
+#5. 修改sex字段，数据类型为CHAR(1)，非空约束
+ALTER TABLE employees
+MODIFY sex CHAR(1);
+
+#6. 删除字段note
+ALTER TABLE employees
+DROP note;
+
+#7. 增加字段名favoriate_activity，数据类型为VARCHAR(100)
+ALTER TABLE employees
+ADD favoriate_activity VARCHAR(100);
+
+DESC employees_info;
+
+#8. 将表employees名称修改为employees_info
+RENAME TABLE employees 
+TO employees_info;
+
+
+
+
+
+
