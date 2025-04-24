@@ -68,10 +68,13 @@ SET @@session.character_set_client = 'gbk';
 #方式2：
 SET SESSION character_set_client = 'gbk';
 
+#?重启服务器后字符集仍为gbk
 SELECT @@session.character_set_client;
 SET @@session.character_set_client='gbk';
 SET SESSION character_set_client='gbk';
+
 #针对于当前会话是有效的，一旦结束会话，重新建立起新的会话，就失效了。
+
 
 #1.5 用户变量
 /*
@@ -122,12 +125,28 @@ SET @sum := @m1 + @m2;
 
 SELECT @sum;
 
+SET @m1=1;
+SET @m2=2;
+SET @sum=@m1+@m2;
+
+SELECT @sum;
+
 #方式2：
 SELECT @count := COUNT(*) FROM employees;
 
 SELECT @count;
 
 SELECT AVG(salary) INTO @avg_sal FROM employees;
+
+SELECT @avg_sal;
+
+SELECT @count:=COUNT(*)
+FROM employees;
+
+SELECT @count;
+
+SELECT AVG(salary) INTO @avg_sal
+FROM employees;
 
 SELECT @avg_sal;
 
@@ -177,10 +196,53 @@ END //
 
 DELIMITER ;
 
+
+DELIMITER //
+
+CREATE PROCEDURE test_var()
+
+BEGIN 
+	DECLARE a INT DEFAULT 0;
+	DECLARE b INT;
+	DECLARE emp_name VARCHAR(25);
+	
+	SET a=1;
+	SET b:=2;
+	
+	SELECT last_name INTO emp_name 
+	FROM employees
+	WHERE employee_id=102;
+	
+	SELECT a,b,emp_name;
+	
+END //
+
+DELIMITER ;
+
+
 #调用存储过程
 CALL test_var();
 
-#举例1：声明局部变量，并分别赋值为employees表中employee_id为102的last_name和salary
+CALL test_var();
+
+#举例1：声明局部变量，并分别赋值为employees表中employee_id为102
+#的last_name和salary
+DELIMITER //
+
+CREATE PROCEDURE test_pro()
+BEGIN 
+	DECLARE NAME VARCHAR(25);
+	DECLARE sal DOUBLE;
+	
+	SELECT last_name,salary INTO NAME,sal
+	FROM employees
+	WHERE employee_id=102;
+	
+	SELECT NAME,sal;
+END //
+
+DELIMITER ;
+
 
 DELIMITER //
 
@@ -204,6 +266,8 @@ DELIMITER ;
 
 CALL test_pro();
 
+CALL test_pro();
+
 SELECT last_name,salary FROM employees
 WHERE employee_id = 102;
 
@@ -214,10 +278,33 @@ SET @v1 = 10;
 SET @v2 := 20;
 SET @result := @v1 + @v2;
 
+SET @v1=10;
+SET @v2:=20;
+SET @result=@v1+@v2;
+
 #查看
 SELECT @result;
 
+SELECT @result;
+
 #方式2：使用局部变量
+DROP PROCEDURE add_value;
+
+DELIMITER //
+
+CREATE PROCEDURE add_value()
+BEGIN
+	DECLARE value1,value2 INT;
+	
+	SET value1=10;
+	SET value2=100;
+	
+	SELECT value1+value2;
+END //
+
+DELIMITER ;
+
+
 DELIMITER //
 
 CREATE PROCEDURE add_value()
@@ -239,8 +326,35 @@ DELIMITER ;
 #调用存储过程
 CALL add_value();
 
-#举例3：创建存储过程“different_salary”查询某员工和他领导的薪资差距，并用IN参数emp_id接收员工id，
+CALL add_value();
+
+#举例3：创建存储过程“different_salary”查询某员工和他领导的薪资差距
+#并用IN参数emp_id接收员工id，
 #用OUT参数dif_salary输出薪资差距结果。
+DELIMITER //
+
+CREATE PROCEDURE different_salary(IN emp_id INT,OUT dif_salary DOUBLE)
+BEGIN
+	DECLARE emp_sal DOUBLE;
+	DECLARE mgr_sal DOUBLE;	
+	
+	SELECT salary INTO emp_sal
+	FROM employees
+	WHERE employee_id=emp_id;
+	
+	SELECT salary INTO mgr_sal
+	FROM employees
+	WHERE employee_id=(
+				SELECT manager_id
+				FROM employees
+				WHERE employee_id=emp_id
+				);
+	
+	SET dif_salary=mgr_sal-emp_sal;
+END //
+
+DELIMITER ;
+
 
 DELIMITER //
 
@@ -273,9 +387,12 @@ CALL different_salary(@emp_id,@dif_sal);
 
 SELECT @dif_sal;
 
-
 SELECT * FROM employees;
 
+SET @emp_id=102;
+CALL different_salary(@emp_id,@dif_sal);
+
+SELECT @dif_sal;
 
 #2. 定义条件和处理程序
 
@@ -309,6 +426,7 @@ CALL UpdateDataNoCondition();
 
 SELECT @x;
 
+
 #2.2 定义条件
 #格式：DECLARE 错误名称 CONDITION FOR 错误码（或错误条件）
 
@@ -317,15 +435,24 @@ SELECT @x;
 #方式1：使用MySQL_error_code
 DECLARE Field_Not_Be_NULL CONDITION FOR 1048;
 
+DECLARE Field_Not_Be_NULL CONDITION FOR 1048;
+
 #方式2：使用sqlstate_value
+DECLARE Field_Not_Be_NULL CONDITION FOR SQLSTATE '23000';
+
 DECLARE Field_Not_Be_NULL CONDITION FOR SQLSTATE '23000';
 
 #举例2：定义"ERROR 1148(42000)"错误，名称为command_not_allowed。
 #方式1：使用MySQL_error_code
 DECLARE command_not_allowed CONDITION FOR 1148;
 
+DECLARE command_not_allowed CONDITION FOR 1148;
+
 #方式2：使用sqlstate_value
 DECLARE command_not_allowed CONDITION FOR SQLSTATE '42000';
+
+DECLARE command_not_allowed CONDITION FOR SQLSTATE '42000';
+
 
 #2.3 定义处理程序
 #格式：DECLARE 处理方式 HANDLER FOR 错误类型 处理语句
@@ -350,6 +477,7 @@ DECLARE EXIT HANDLER FOR NOT FOUND SET @info = 'NO_SUCH_TABLE';
 #方法6：使用SQLEXCEPTION
 DECLARE EXIT HANDLER FOR SQLEXCEPTION SET @info = 'ERROR';
 
+
 #2.4 案例的处理
 
 DROP PROCEDURE UpdateDataNoCondition;
@@ -362,9 +490,13 @@ CREATE PROCEDURE UpdateDataNoCondition()
 		#声明处理程序
 		#处理方式1：
 		DECLARE CONTINUE HANDLER FOR 1048 SET @prc_value = -1;
+		
+		DECLARE CONTINUE HANDLER FOR 1048 SET @prc_value = -1;
 		#处理方式2：
 		#DECLARE CONTINUE HANDLER FOR sqlstate '23000' SET @prc_value = -1;
 		
+		DECLARE CONTINUE HANDLER FOR SQLSTATE '23000' SET @prc_value = -1;	
+	
 		SET @x = 1;
 		UPDATE employees SET email = NULL WHERE last_name = 'Abel';
 		SET @x = 2;
@@ -392,6 +524,9 @@ DESC departments;
 
 ALTER TABLE departments
 ADD CONSTRAINT uk_dept_name UNIQUE(department_id);
+
+ALTER TABLE departments
+ADD UNIQUE(department_id);
 
 #② 定义存储过程：
 DELIMITER //
@@ -425,12 +560,20 @@ CREATE PROCEDURE InsertDataWithCondition()
 		#处理程序
 		#方式1：
 		#declare exit handler for 1062 set @pro_value = -1;
+		
+		DECLARE EXIT HANDLER FOR 1062 SET @pro_value = -1;
 		#方式2：
 		#declare exit handler for sqlstate '23000' set @pro_value = -1;
+		
+		DECLARE EXIT HANDLER FOR SQLSTATE '23000' SET @pro_value = -1;		
 		#方式3：
 		#定义条件
 		DECLARE duplicate_entry CONDITION FOR 1062;
 		DECLARE EXIT HANDLER FOR duplicate_entry SET @pro_value = -1;
+		
+		DECLARE duplicate_entry CONDITION foe 1062;
+		DECLARE EXIT HANDLER FOR duplicate_entry SET @pro_value = -1;		
+		
 		
 		SET @x = 1;
 		INSERT INTO departments(department_name) VALUES('测试');
@@ -445,6 +588,8 @@ DELIMITER ;
 CALL InsertDataWithCondition();
 
 SELECT @x,@pro_value;
+
+
 
 #3. 流程控制
 #3.1 分支结构之 IF
@@ -496,8 +641,67 @@ CALL test_if();
 
 DROP PROCEDURE test_if;
 
+
+DELIMITER //
+
+CREATE PROCEDURE test_if()
+BEGIN 
+	#1.
+	#declare emp_name varchar(15);
+	
+	#if emp_name is null then select 'emp_name is null';
+	#end if;
+	
+	#2.
+	#declare email varchar(25);
+	
+	#if email is null then select 'email is null';
+	#else select 'email is not null';
+	#end if;
+	
+	#3.
+	DECLARE age INT DEFAULT 20;
+	
+	IF age>40 THEN SELECT '老壮年';
+	ELSEIF age>20 THEN SELECT '青壮年';
+	ELSEIF age>6 THEN SELECT '青少年';
+	ELSE SELECT '婴幼年';
+	END IF;
+	
+END //
+
+DELIMITER ;
+
+CALL test_if();
+
+DROP PROCEDURE test_if;
+
 #举例2：声明存储过程“update_salary_by_eid1”，定义IN参数emp_id，输入员工编号。
 #判断该员工薪资如果低于8000元并且入职时间超过5年，就涨薪500元；否则就不变。
+DELIMITER //
+
+CREATE PROCEDURE update_salary_by_eid1(IN emp_id INT)
+BEGIN 
+	DECLARE sal DOUBLE;
+	DECLARE diff_date DOUBLE;
+	
+	SELECT salary,DATEDIFF(CURDATE(),hire_date)/365 INTO sal,diff_date
+	FROM employees
+	WHERE employee_id=emp_id;
+	
+	IF sal<8000 AND diff_date>=5 
+			THEN UPDATE employees
+			SET salary=salary+500 
+			WHERE employee_id=emp_id;
+	END IF;
+END //
+
+DELIMITER ;
+
+CALL update_salary_by_eid1(104);
+
+SELECT * FROM employees;
+
 
 DELIMITER //
 
@@ -552,7 +756,7 @@ BEGIN
 	IF emp_sal < 9000 AND hire_year >= 5
 		THEN UPDATE employees SET salary = salary + 500 WHERE employee_id = emp_id;
 	ELSE
-		UPDATE employees SET salary = salary + 100 WHERE employee_id = emp_id;
+		UPDATE employees SET salary=salary+100 WHERE employee_id=emp_id;
 	END IF;
 END //
 
@@ -569,6 +773,33 @@ WHERE employee_id IN (103,104);
 #举例4：声明存储过程“update_salary_by_eid3”，定义IN参数emp_id，输入员工编号。
 #判断该员工薪资如果低于9000元，就更新薪资为9000元；薪资如果大于等于9000元且
 #低于10000的，但是奖金比例为NULL的，就更新奖金比例为0.01；其他的涨薪100元。
+DELIMITER //
+
+CREATE PROCEDURE update_salary_by_eid3(IN emp_id INT)
+BEGIN
+	DECLARE sal DOUBLE;
+	DECLARE bonus DOUBLE;
+	
+	SELECT salary,commission_pct INTO sal,bonus
+	FROM employees
+	WHERE employee_id=emp_id;
+	
+	IF sal <9000 
+			THEN UPDATE employees
+			SET salary=9000
+			WHERE employee_id=emp_id;
+	ELSEIF sal <10000 AND bonus IS NULL
+			THEN UPDATE employees
+			SET commission_pct=0.01
+			WHERE employee_id=emp_id;
+	ELSE 
+			UPDATE employees
+			SET salary=salary+100
+			WHERE employee_id=emp_id;
+	END IF;
+END //
+DELIMITER ;
+
 
 DELIMITER //
 CREATE PROCEDURE update_salary_by_eid3(IN emp_id INT)
@@ -604,6 +835,7 @@ CALL update_salary_by_eid3(104);
 SELECT *
 FROM employees
 WHERE employee_id IN (102,103,104);
+
 
 ##3.2 分支结构之case
 
@@ -642,6 +874,34 @@ DROP PROCEDURE test_case;
 #举例2：声明存储过程“update_salary_by_eid4”，定义IN参数emp_id，输入员工编号。
 #判断该员工薪资如果低于9000元，就更新薪资为9000元；薪资大于等于9000元且低于10000的，
 #但是奖金比例为NULL的，就更新奖金比例为0.01；其他的涨薪100元。
+DELIMITER //
+
+CREATE PROCEDURE update_salary_by_eid4(IN emp_id INT)
+BEGIN
+	DECLARE sal DOUBLE;
+	DECLARE bonus DOUBLE;
+	
+	SELECT salary,commission_pct INTO sal,bonus
+	FROM employees
+	WHERE employee_id=emp_id;
+	
+	CASE WHEN sal<9000
+			THEN UPDATE employees
+			SET salary=9000
+			WHERE employee_id=emp_id;
+	WHEN sal <10000 AND bonus IS NULL
+			THEN UPDATE employees
+			SET commission_pct=0.01
+			WHERE employee_id=emp_id;
+	ELSE 
+			UPDATE employees
+			SET salary=salary+100
+			WHERE employee_id=emp_id;
+	END CASE;
+END //
+DELIMITER ;
+
+
 
 DELIMITER //
 CREATE PROCEDURE update_salary_by_eid4(IN emp_id INT)
@@ -678,6 +938,45 @@ WHERE employee_id IN (103,104,105);
 #举例3：声明存储过程update_salary_by_eid5，定义IN参数emp_id，输入员工编号。
 #判断该员工的入职年限，如果是0年，薪资涨50；如果是1年，薪资涨100；
 #如果是2年，薪资涨200；如果是3年，薪资涨300；如果是4年，薪资涨400；其他的涨薪500。
+DELIMITER //
+
+CREATE PROCEDURE update_salary_by_eid5(IN emp_id INT)
+BEGIN
+	DECLARE diff_date INT;
+	
+	SELECT DATEDIFF(CURDATE(),hire_date)/365 INTO diff_date
+	FROM employees
+	WHERE employee_id=emp_id;
+	
+	CASE diff_date  
+	WHEN 0
+			THEN UPDATE employees
+			SET salary=salary+50
+			WHERE employee_id=emp_id;
+	WHEN 1
+			THEN UPDATE employees
+			SET salary=salary+100
+			WHERE employee_id=emp_id;
+	WHEN 2
+			THEN UPDATE employees
+			SET salary=salary+200
+			WHERE employee_id=emp_id;
+	WHEN 3
+			THEN UPDATE employees
+			SET salary=salary+300
+			WHERE employee_id=emp_id;
+	WHEN 4
+			THEN UPDATE employees
+			SET salary=salary+400
+			WHERE employee_id=emp_id;
+	ELSE
+			UPDATE employees
+			SET salary=salary+500
+			WHERE employee_id=emp_id;
+	END CASE;
+END //
+DELIMITER ;
+
 
 DELIMITER //
 
@@ -711,6 +1010,7 @@ SELECT *
 FROM employees
 
 DROP PROCEDURE update_salary_by_eid5;
+
 
 
 #4.1 循环结构之LOOP
@@ -749,12 +1049,57 @@ DELIMITER ;
 #调用
 CALL test_loop();
 
+DELIMITER //
+
+CREATE PROCEDURE test_loop()
+BEGIN 
+	DECLARE num INT DEFAULT 0;
+	
+	loop_label:LOOP
+		IF num>=10 THEN LEAVE loop_label;
+		END IF;
+		SET num=num+1;
+	END LOOP loop_label;
+	
+	SELECT num;
+END //
+
+DELIMITER ;
+
+CALL test_loop();
 
 #举例2：当市场环境变好时，公司为了奖励大家，决定给大家涨工资。
 #声明存储过程“update_salary_loop()”，声明OUT参数num，输出循环次数。
 #存储过程中实现循环给大家涨薪，薪资涨为原来的1.1倍。直到全公司的平
 #均薪资达到12000结束。并统计循环次数。
+DELIMITER //
+CREATE PROCEDURE update_salary_loop(OUT num INT)
+BEGIN
 
+	DECLARE avg_sal DOUBLE;
+	DECLARE loop_count INT DEFAULT 0;
+	
+	loop_label:LOOP
+		SELECT AVG(salary) INTO avg_sal
+		FROM employees;
+		
+		IF avg_sal>=12000 THEN LEAVE loop_label;
+		END IF;
+		
+		UPDATE employees 
+		SET salary=salary*1.1;
+		
+		SET loop_count=loop_count+1;
+		
+	END LOOP loop_label;
+	
+	SET num=loop_count;
+	
+END //
+DELIMITER ;
+
+CALL update_salary_loop(@num);
+SELECT @num;
 
 DELIMITER //
 
@@ -803,7 +1148,10 @@ CALL update_salary_loop(@num);
 SELECT @num;
 
 
+
 #4.2 循环结构之WHILE
+#先判断再执行
+
 /*
 [while_label:] WHILE 循环条件  DO
 	循环体
@@ -835,10 +1183,53 @@ DELIMITER ;
 #调用
 CALL test_while();
 
+
+DELIMITER //
+
+CREATE PROCEDURE test_while()
+BEGIN
+	DECLARE num INT DEFAULT 1;
+	
+	WHILE num <=10 DO
+		SET num=num+1;
+	END WHILE;
+	
+	SELECT num;
+END //
+
+DELIMITER ;
+
+CALL test_while();
+
 #举例2：市场环境不好时，公司为了渡过难关，决定暂时降低大家的薪资。
 #声明存储过程“update_salary_while()”，声明OUT参数num，输出循环次数。
 #存储过程中实现循环给大家降薪，薪资降为原来的90%。直到全公司的平均薪资
 #达到5000结束。并统计循环次数。
+DELIMITER //
+
+CREATE PROCEDURE update_salary_while(OUT num INT)
+BEGIN 
+	DECLARE COUNT INT DEFAULT 0;
+	DECLARE avg_sal DOUBLE;
+	
+	SELECT AVG(salary) INTO avg_sal FROM employees;
+	
+	WHILE avg_sal >5000 DO
+		UPDATE employees
+		SET salary=salary*0.9;
+		
+		SET COUNT=COUNT+1;
+		SELECT AVG(salary) INTO avg_sal FROM employees;
+	END WHILE;
+	
+	SET num=COUNT;
+END //
+DELIMITER ;
+
+CALL update_salary_while(@num);
+SELECT @num;
+
+
 
 DELIMITER //
 CREATE PROCEDURE update_salary_while(OUT num INT)
@@ -867,6 +1258,7 @@ END //
 
 DELIMITER ;
 
+
 #调用
 CALL update_salary_while(@num);
 
@@ -874,7 +1266,10 @@ SELECT @num;
 
 SELECT AVG(salary) FROM employees;
 
+
+
 #4.3 循环结构之REPEAT
+#先执行再判断
 
 /*
 [repeat_label:] REPEAT
@@ -909,10 +1304,51 @@ DELIMITER ;
 #调用
 CALL test_repeat();
 
+
+DELIMITER //
+CREATE PROCEDURE test_repeat()
+BEGIN
+	DECLARE num INT DEFAULT 1;
+	
+	REPEAT
+		SET num=num+1;
+	UNTIL num >=10
+	END REPEAT;
+	
+	SELECT num;
+END //
+
+DELIMITER ;
+
+CALL test_repeat();
+
 #举例2：当市场环境变好时，公司为了奖励大家，决定给大家涨工资。
 #声明存储过程“update_salary_repeat()”，声明OUT参数num，输出循环次数。
 #存储过程中实现循环给大家涨薪，薪资涨为原来的1.15倍。直到全公司的平均
 #薪资达到13000结束。并统计循环次数。
+DELIMITER //
+
+CREATE PROCEDURE update_salary_repeat(OUT num INT)
+BEGIN 
+	DECLARE COUNT INT DEFAULT 0;
+	DECLARE avg_sal DOUBLE;
+	
+	REPEAT 
+		UPDATE employees SET salary=salary*1.15;
+		SELECT AVG(salary) INTO avg_sal FROM employees;
+		SET COUNT=COUNT+1;
+		
+	UNTIL avg_sal >= 13000
+	END REPEAT;
+	
+	SET num=COUNT;
+END //
+DELIMITER ;
+
+CALL update_salary_repeat(@num);
+SELECT @num;
+
+DROP PROCEDURE update_salary_repeat;
 
 
 DELIMITER //
@@ -961,6 +1397,8 @@ SELECT AVG(salary) FROM employees;
 
 */
 
+
+
 #5.1 LEAVE的使用
 /*
 **举例1：**创建存储过程 “leave_begin()”，声明INT类型的IN参数num。给BEGIN...END加标记名，
@@ -974,6 +1412,26 @@ SELECT AVG(salary) FROM employees;
 IF语句结束后查询“employees”表的总人数。
 
 */
+DELIMITER //
+CREATE PROCEDURE leave_begin(IN num INT)
+begin_label:BEGIN 
+	IF num <=0 
+		THEN LEAVE begin_label;
+	ELSEIF num=1
+		THEN SELECT AVG(salary) FROM employees;
+	ELSEIF num=2
+		THEN SELECT MIN(salary) FROM employees;
+	ELSEIF num>2
+		THEN SELECT MAX(salary) FROM employees;
+	END IF;
+	
+	SELECT COUNT(*) FROM employees;
+END //
+DELIMITER ;
+
+CALL leave_begin(3);
+
+
 
 DELIMITER //
 
@@ -1044,7 +1502,10 @@ SELECT @num;
 SELECT AVG(salary) FROM employees;
 
 
+
 #5.2 ITERATE的使用
+#相当于java中的continue
+
 /*
 举例： 定义局部变量num，初始值为0。循环结构中执行num + 1操作。
 
@@ -1052,6 +1513,30 @@ SELECT AVG(salary) FROM employees;
 - 如果num > 15，则退出循环结构；
 
 */
+DELIMITER //
+CREATE PROCEDURE test_iterate()
+BEGIN
+	DECLARE num INT DEFAULT 0;
+	
+	loop_label:LOOP
+		SET num=num+1;
+		
+		IF num <10 
+			THEN ITERATE loop_label;
+		ELSEIF num >15
+			THEN LEAVE loop_label;
+		END IF;
+		
+		SELECT '明天会更好';
+	END LOOP;
+	
+END //
+
+DELIMITER ;
+
+CALL test_iterate();
+
+
 
 DELIMITER //
 
@@ -1080,10 +1565,13 @@ DELIMITER ;
 
 CALL test_iterate();
 
-
 SELECT * FROM employees;
 
+
+
 #6. 游标的使用
+#可以具体操作每一条数据的每个字段
+
 /*
 游标使用的步骤：
 ① 声明游标
@@ -1097,6 +1585,35 @@ SELECT * FROM employees;
 #举例：创建存储过程“get_count_by_limit_total_salary()”，声明IN参数 limit_total_salary，
 #DOUBLE类型；声明OUT参数total_count，INT类型。函数的功能可以实现累加薪资最高的几个员工的薪资值，
 #直到薪资总和达到limit_total_salary参数的值，返回累加的人数给total_count。
+DELIMITER //
+CREATE PROCEDURE get_count_by_limit_total_salary(IN limit_total_salary DOUBLE,OUT total_count INT)
+BEGIN
+	DECLARE sum_sal DOUBLE DEFAULT 0.0;
+	DECLARE emp_sal DOUBLE ;
+	DECLARE COUNT INT DEFAULT 0;
+	
+	DECLARE sal_cursor CURSOR FOR 
+					SELECT salary 
+					FROM employees
+					ORDER BY salary DESC;
+	OPEN sal_cursor;
+	
+	WHILE sum_sal < limit_total_salary DO
+		FETCH sal_cursor INTO emp_sal;
+		SET sum_sal=sum_sal+emp_sal;
+		SET COUNT =COUNT+1;	
+	END WHILE;
+	
+	CLOSE sal_cursor;
+	
+	SET total_count=COUNT;
+END //
+DELIMITER ;
+
+CALL get_count_by_limit_total_salary(200000,@total_count);
+SELECT @total_count;
+
+
 
 DELIMITER //
 
@@ -1139,3 +1656,302 @@ DELIMITER ;
 CALL get_count_by_limit_total_salary(200000,@total_count);
 SELECT @total_count;
 
+
+
+
+#练习1：测试变量的使用  
+
+#存储函数的练习
+
+#0. 准备工作
+CREATE DATABASE test16_var_cursor;
+
+USE test16_var_cursor;
+
+CREATE TABLE employees
+AS
+SELECT * FROM atguigudb.`employees`;
+
+CREATE TABLE departments
+AS
+SELECT * FROM atguigudb.`departments`;
+
+SET GLOBAL log_bin_trust_function_creators = 1;
+
+#无参有返回
+#1. 创建函数get_count(),返回公司的员工个数
+DELIMITER //
+CREATE FUNCTION get_count()
+RETURNS INT
+BEGIN
+	#定义局部变量
+	DECLARE emp_num INT;
+	SELECT COUNT(*) INTO emp_num FROM employees;
+	RETURN emp_num;
+END //
+DELIMITER ;
+
+SELECT get_count();
+
+#有参有返回
+#2. 创建函数ename_salary(),根据员工姓名，返回它的工资
+DELIMITER //
+CREATE FUNCTION ename_salary(NAME VARCHAR(15))
+RETURNS DOUBLE
+BEGIN
+	#定义系统会话变量
+	SET @sal =0;	
+	
+	SELECT salary INTO @sal
+	FROM employees
+	WHERE last_name=NAME;	
+		
+	RETURN @sal;
+END //
+DELIMITER ;
+
+SELECT ename_salary('Abel');
+SELECT @sal;
+
+DROP FUNCTION ename_salary;
+
+#3. 创建函数dept_sal() ,根据部门名，返回该部门的平均工资
+DELIMITER //
+CREATE FUNCTION dept_sal(dept_name VARCHAR(30))
+RETURNS DOUBLE
+BEGIN
+	DECLARE avg_sal DOUBLE;
+	
+	SELECT AVG(salary) INTO avg_sal
+	FROM employees e JOIN departments d
+	ON e.department_id=d.department_id
+	WHERE department_name=dept_name;
+	
+	RETURN avg_sal;
+END //
+DELIMITER ;
+
+SELECT dept_sal('IT');
+
+DESC departments;
+DROP FUNCTION dept_sal;
+
+#4. 创建函数add_float()，实现传入两个float，返回二者之和
+DELIMITER //
+CREATE FUNCTION add_float(f1 FLOAT,f2 FLOAT)
+RETURNS FLOAT
+BEGIN
+	DECLARE float_sum FLOAT;
+	SET float_sum=f1+f2;
+	RETURN float_sum;
+END //
+DELIMITER ;
+
+SET @f1=1.1;
+SET @f2=2.0;
+
+SELECT add_float(@f1,@f2);
+
+
+#2. 流程控制
+
+/*
+分支：if \ case ... when \ case when ...
+循环：loop \ while \ repeat
+其它：leave \ iterate
+
+*/
+
+#1. 创建函数test_if_case()，实现传入成绩，如果成绩>90,返回A，
+#如果成绩>80,返回B，如果成绩>60,返回C，否则返回D
+#要求：分别使用if结构和case结构实现
+
+DELIMITER //
+CREATE FUNCTION test_if_case(score DOUBLE)
+RETURNS CHAR(1)
+BEGIN 
+	IF score >90
+		THEN RETURN 'A';
+	ELSEIF score >80
+		THEN RETURN 'B';
+	ELSEIF score >60
+		THEN RETURN 'C';
+	ELSE RETURN 'D';
+	END IF;
+END //
+DELIMITER ;
+
+SELECT test_if_case(100);
+
+
+DELIMITER //
+CREATE FUNCTION test_if_case1(score DOUBLE)
+RETURNS CHAR(1)
+BEGIN 
+	CASE WHEN score>90
+		THEN RETURN 'A';
+	WHEN score>80
+		THEN RETURN 'B';
+	WHEN score>60
+		THEN RETURN 'C';
+	ELSE RETURN 'D';
+	END CASE;
+		
+END //
+DELIMITER ;
+
+SELECT test_if_case1(59);
+
+
+#2. 创建存储过程test_if_pro()，传入工资值，如果工资值<3000,则删除工资为此值的员工，
+# 如果3000 <= 工资值 <= 5000,则修改此工资值的员工薪资涨1000，否则涨工资500
+DELIMITER //
+CREATE PROCEDURE test_if_pro(IN sal DOUBLE)
+BEGIN
+	IF sal<3000
+		THEN DELETE FROM employees
+		     WHERE salary=sal;
+	ELSEIF sal<=5000
+		THEN UPDATE employees
+		     SET salary=salary+1000
+		     WHERE salary=sal;
+	ELSE UPDATE employees
+	     SET salary=salary+500
+	     WHERE salary=sal;
+	END IF;
+END //
+DELIMITER ;
+
+CALL test_if_pro(1200);
+
+SELECT * FROM employees;
+
+
+#3. 创建存储过程insert_data(),传入参数为 IN 的 INT 类型变量 insert_count
+#实现向admin表中批量插入insert_count条记录
+CREATE TABLE ADMIN(
+id INT PRIMARY KEY AUTO_INCREMENT,
+user_name VARCHAR(25) NOT NULL,
+user_pwd VARCHAR(35) NOT NULL
+);
+
+SELECT * FROM ADMIN;
+
+
+DELIMITER //
+CREATE PROCEDURE insert_data(IN insert_count INT)
+BEGIN
+	DECLARE num INT;
+	SET num=insert_count;
+	WHILE num>0 DO
+		#insert into admin(user_name,user_pwd)
+		#values('Tom','123456');
+		INSERT INTO ADMIN(user_name,user_pwd)
+		VALUES(CONCAT('atguigu',num),ROUND(RAND()*100000000));		
+		
+		SET num=num-1;
+	END WHILE;
+END //
+DELIMITER ;
+
+CALL insert_data(10);
+
+DROP PROCEDURE insert_data;
+
+
+#3. 游标的使用
+
+#创建存储过程update_salary()，参数1为 IN 的INT型变量dept_id，表示部门id；
+#参数2为 IN的INT型变量change_sal_count，表示要调整薪资的员工个数。查询指定id部门的员工信息，
+#按照salary升序排列，根据hire_date的情况，调整前change_sal_count个员工的薪资，详情如下。
+
+DELIMITER //
+CREATE PROCEDURE update_salary(IN dept_id INT,IN change_sal_count INT)
+BEGIN
+	DECLARE hdate DATE;
+	DECLARE COUNT INT DEFAULT 1;
+	
+	DECLARE emp_cursor CURSOR FOR 
+					SELECT hire_date
+					FROM employees
+					WHERE department_id=dept_id
+					ORDER BY salary;
+	OPEN emp_cursor;
+	
+	WHILE COUNT<=change_sal_count DO
+	
+		FETCH emp_cursor INTO hdate;
+		IF YEAR(hdate)<1995
+			THEN UPDATE employees
+			     SET salary=salary*1.2
+			     WHERE hire_date=hdate AND department_id=dept_id;
+	        ELSEIF YEAR(hdate)<=1998
+			THEN UPDATE employees
+			     SET salary=salary*1.15
+			     WHERE hire_date=hdate AND department_id=dept_id;
+		ELSEIF YEAR(hdate)<=2001
+			THEN UPDATE employees
+			     SET salary=salary*1.10
+			     WHERE hire_date=hdate AND department_id=dept_id;
+		ELSE 
+			 UPDATE employees
+			 SET salary=salary*1.05
+			 WHERE hire_date=hdate AND department_id=dept_id;
+		END IF;
+		
+		SET COUNT=COUNT+1;
+	END WHILE;	
+	
+	CLOSE emp_cursor;
+	
+END //
+DELIMITER ;
+
+CALL update_salary(60,3);
+
+SELECT hire_date,salary
+FROM employees
+WHERE department_id=60
+ORDER BY salary;
+
+
+#改进：
+DELIMITER //
+CREATE PROCEDURE update_salary(IN dept_id INT,IN change_sal_count INT)
+BEGIN
+	DECLARE emp_id INT;
+	DECLARE emp_date DATE;
+	DECLARE COUNT INT DEFAULT 1;
+	DECLARE sal_pct DOUBLE;
+	
+	DECLARE emp_cursor CURSOR FOR 
+					SELECT employee_id,hire_date
+					FROM employees
+					WHERE department_id=dept_id
+					ORDER BY salary;
+	OPEN emp_cursor;
+	
+	WHILE COUNT<=change_sal_count DO
+	
+		FETCH emp_cursor INTO emp_id,emp_date;
+		IF YEAR(emp_date)<1995
+			THEN SET sal_pct=1.2;
+	        ELSEIF YEAR(emp_date)<=1998
+			THEN SET sal_pct=1.15;
+		ELSEIF YEAR(emp_date)<=2001
+			THEN SET sal_pct=1.10;
+		ELSE 
+			SET sal_pct=1.05;
+		END IF;
+		
+		UPDATE employees
+		SET salary=salary*sal_pct
+		WHERE employee_id=emp_id;		
+		
+		SET COUNT=COUNT+1;
+	END WHILE;	
+	
+	CLOSE emp_cursor;
+	
+END //
+DELIMITER ;
